@@ -39,10 +39,6 @@ https://xuwei-k.github.io/slides/alp-scala-3/
 ## コンパイルを通す
 動かなくていいのでコード書き換えたりしてとにかくコンパイルを通す
 
-↓
-
-Scala3移行をブロックしているLib・コードが明らかに
-
 (当初予定だと1PRで終わらす予定だったけど終わらないことが発覚してくる)
 
 
@@ -68,9 +64,20 @@ Scala3移行をブロックしているLib・コードが明らかに
 - ベースのMockitoを直で使うように置き換え
 
 
-- `mock[Hoge]` => `mock(classOf[Hoge])`
-- `hoge.func returns fuga` => `when(hoge.func).thenReturn(fuga)`
-- `there was one(hoge.func) => verify(hoge, times(1)).func`
+#### before
+```scala
+val hoge = mock[Hoge]
+hoge.func returns fuga
+there was one(hoge.func)
+```
+
+#### after
+```scala
+val hoge = mock(classOf[Hoge])
+when(hoge.func).thenReturn(fuga)
+verify(hoge, times(1)).func
+true must beTrue
+```
 
 
 ## PR(remove specs2 mock)
@@ -83,14 +90,22 @@ Files changed(86) +1,346 -1,466
 - ScalaのJSONライブラリcirce
 - circeのdecode/encodeに便利な機能を追加する
 - 内部実装はほぼマクロ
+- package privateのclass触るためにcirceになってるだけで別プロジェクト
 
 
 ## 社内のcirce-generic-extras
 decoderがデフォルト値を使うようになる
 
-`case class Person(name: String = "default")`
+```scala
+case class Person(name: String = "default")
+object Person {
+  implicit val c = Configuration.default.withDefaults
+  implicit val d = deriveConfiguredDecoder
+}
+```
 
-デフォルトだと"{}"渡すとエラーになるが、通るように
+name要素無しでパースできるようになる
+
 
 **POSTのbodyパーサにcirce使ってるって…こと…？**
 
@@ -98,7 +113,8 @@ Play Forms使え案件
 
 
 ## circe-generic-extras依存削除
-- 半分はdecoderを使ってないので純粋に削除
+- decoderを使ってないのは純粋に削除
+- デフォルト値が無いのは置き換え
 - テストを追加してdefault値動作を保証
 - Formsを使うべきだが一旦class増やして逃げる
 
@@ -140,3 +156,41 @@ Files changed(92) +1,142 -600
 
 ## PR(Remove mailgun4s)
 Files changed(19) +33 -172
+
+
+## 長期メンテ可能なScala
+- Scala 2.9|2.10|2.11|2.12|2.13|3
+- 既存コードが壊れるアプデはほぼない
+  - マクロは大体壊れる
+  - Collectionは一度大改修あった
+- バイナリ互換はほぼ無い
+  - ビルド環境のアップデートが必要
+- 常にネックはScala Lib
+  - Java Libを使う
+  - 長期的にメンテされそうなLibを使う
+
+
+## 長期メンテされるLib
+### マクロを使ってない
+### JDKに依存していない
+### 黒魔術使ってない
+黒魔術を駆使して利便性を上げたLibが爆死するのを沢山みた
+
+ちょっとした利便性のためにマクロ使う、使ったLibを使うのは避けたい
+
+
+## ビルド環境事情
+- Scalaではsbtがデファクト
+  - Scala固有事情がありsbt以外考えられない
+- アップデートは頻繁
+  - 過去には破壊的変更も多数
+  - ここ数年はほぼない
+- 文法が独特(とっつきにくい)
+- 機能的には十分かつ豊富
+
+
+## まとめ
+- scala-mockitoやばい
+- 黒魔術を駆使したLibは避けよう
+- JavaLibは無難
+- sbtと向き合おう

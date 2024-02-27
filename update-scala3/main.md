@@ -12,11 +12,9 @@
 
 
 ## 社内プロジェクト
-- ベースは退社した人が作ったやつ
 - よくあるPlayのAPIサーバ
 - Scala 2.13 / Play 2.8
-- Libアップデートは放置気味
-- テストは半分ぐらい網羅
+- circe/ScalikeJDBC/specs2
 
 これをScala3が使えるようにする
 
@@ -32,8 +30,7 @@
 
 https://xuwei-k.github.io/slides/alp-scala-3/
 
-
-おわり
+※問題ググると大体ここに行き着く
 
 
 ## コンパイルを通す
@@ -56,12 +53,13 @@ https://xuwei-k.github.io/slides/alp-scala-3/
 - mockito-scalaに依存
   - マクロ非互換の問題できつい
   - JDK内部実装依存まであるらしい
-  - 待っても対応されなそう
+- Play2.9/3.0で依存削除
 - Scala業界を恐怖のどん底に落とした(かもしれない)
 
 
 ## specs2-mock依存削除
 - ベースのMockitoを直で使うように置き換え
+- Play公式推奨
 
 
 #### before
@@ -93,8 +91,10 @@ Files changed(86) +1,346 -1,466
 - package privateのclass触るためにcirceになってるだけで別プロジェクト
 
 
-## 社内のcirce-generic-extras
-decoderがデフォルト値を使うようになる
+## circe-generic-extras使用例
+- 機能の1つ、withDefaultsのみ使用
+- decoderがデフォルト値を使うようになる
+- name要素無しでパースできるようになる
 
 ```scala
 case class Person(name: String = "default")
@@ -104,15 +104,13 @@ object Person {
 }
 ```
 
-name要素無しでパースできるようになる
-
 
 **POSTのbodyパーサにcirce使ってるって…こと…？**
 
 Play Forms使え案件
 
 
-## circe-generic-extras依存削除
+## circe-generic-extras削除
 - decoderを使ってないのは純粋に削除
 - デフォルト値が無いのは置き換え
 - テストを追加してdefault値動作を保証
@@ -129,6 +127,12 @@ case class PersonRequest(name: Option[String]) {
 Files changed(92) +1,142 -600
 
 前の動作を保証するためにテスト追加が多い。つらい
+
+
+## play-redis
+先週Play2.9/3.0対応版が出た
+
+→対応不要
 
 
 ## mailgun4s
@@ -158,11 +162,58 @@ Files changed(92) +1,142 -600
 Files changed(19) +33 -172
 
 
+## Scalaの修正
+おおきめのやつだけ
+
+- unapplyの仕様変更
+- Actionまわりの修正
+
+
+## unapplyの仕様変更
+- 返り値のOptionが外れた
+- PlayのFormsがOption前提
+- 以下のtraitで逃げ
+
+```scala
+trait FormHelper {
+  def unapply[A <: Product](value: A)(using mirror: Mirror.ProductOf[A]): Option[mirror.MirroredElemTypes] =
+    Some(Tuple.fromProductTyped(value))
+}
+```
+
+
+## Actionまわり
+```scala
+def health() = Action { Ok }
+```
+
+↓
+
+```scala
+def health(): Action[AnyContent] = Action { Ok }
+```
+
+applyまわりの仕様変更？でAction.applyに揺れ？
+
+型を書けば解決する(IntelliJで一発)
+
+
+## play-circe
+Circe自体はScala3でも問題ない
+
+play-circeがPlay2.9に非対応
+
+→事実上Play3.0を強いられる
+
+昨日気付いてPlay3.0に上げてる
+
+
 ## 長期メンテ可能なScala
 - Scala 2.9|2.10|2.11|2.12|2.13|3
-- 既存コードが壊れるアプデはほぼない
+- 既存コードが壊れるアプデはそんなない
   - マクロは大体壊れる
   - Collectionは一度大改修あった
+  - unapplyはでかい方
 - バイナリ互換はほぼ無い
   - ビルド環境のアップデートが必要
 - 常にネックはScala Lib
@@ -178,6 +229,8 @@ Files changed(19) +33 -172
 
 ちょっとした利便性のためにマクロ使う、使ったLibを使うのは避けたい
 
+スターの数そんな関係ないよ
+
 
 ## ビルド環境事情
 - Scalaではsbtがデファクト
@@ -191,6 +244,9 @@ Files changed(19) +33 -172
 
 ## まとめ
 - scala-mockitoやばい
+- play-circeの人はPlay3.0
 - 黒魔術を駆使したLibは避けよう
 - JavaLibは無難
 - sbtと向き合おう
+
+https://ponkotuy.github.io/ponkotuy-slide/update-scala3/

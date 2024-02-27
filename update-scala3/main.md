@@ -1,4 +1,4 @@
-# Scala3移行の話
+# Scala3移行話
 - ぽんこつ
   - @ponkotuy@social.mikutter.hachune.net
   - @ponkotuy(Twitter)
